@@ -1,114 +1,108 @@
-/**
- * Sample React Native App
- * https://github.com/facebook/react-native
- *
- * @format
- * @flow strict-local
- */
+import React, {Component} from 'react';
+import { AsyncStorage, Alert, View, Text, AppRegistry } from 'react-native';
+import firebase from 'react-native-firebase';
+//import bgMessaging from './bgMessaging'; // <-- Import the file you created in (2)
+//AppRegistry.registerHeadlessTask('RNFirebaseBackgroundMessage', () => bgMessaging); // <-- Add this line
+export default class App extends Component {
 
-import React from 'react';
-import {
-  SafeAreaView,
-  StyleSheet,
-  ScrollView,
-  View,
-  Text,
-  StatusBar,
-} from 'react-native';
+async componentDidMount() {
+  this.checkPermission();
+  this.createNotificationListeners(); //add this line
+}
 
-import {
-  Header,
-  LearnMoreLinks,
-  Colors,
-  DebugInstructions,
-  ReloadInstructions,
-} from 'react-native/Libraries/NewAppScreen';
+  //1
+async checkPermission() {
+  const enabled = await firebase.messaging().hasPermission();
+  if (enabled) {
+      this.getToken();
+  } else {
+      this.requestPermission();
+  }
+}
 
-const App: () => React$Node = () => {
-  return (
-    <>
-      <StatusBar barStyle="dark-content" />
-      <SafeAreaView>
-        <ScrollView
-          contentInsetAdjustmentBehavior="automatic"
-          style={styles.scrollView}>
-          <Header />
-          {global.HermesInternal == null ? null : (
-            <View style={styles.engine}>
-              <Text style={styles.footer}>Engine: Hermes</Text>
-            </View>
-          )}
-          <View style={styles.body}>
-            <View style={styles.sectionContainer}>
-              <Text style={styles.sectionTitle}>Step One</Text>
-              <Text style={styles.sectionDescription}>
-                Edit <Text style={styles.highlight}>App.js</Text> to change this
-                screen and then come back to see your edits.
-              </Text>
-            </View>
-            <View style={styles.sectionContainer}>
-              <Text style={styles.sectionTitle}>See Your Changes</Text>
-              <Text style={styles.sectionDescription}>
-                <ReloadInstructions />
-              </Text>
-            </View>
-            <View style={styles.sectionContainer}>
-              <Text style={styles.sectionTitle}>Debug</Text>
-              <Text style={styles.sectionDescription}>
-                <DebugInstructions />
-              </Text>
-            </View>
-            <View style={styles.sectionContainer}>
-              <Text style={styles.sectionTitle}>Learn More</Text>
-              <Text style={styles.sectionDescription}>
-                Read the docs to discover what to do next:
-              </Text>
-            </View>
-            <LearnMoreLinks />
-          </View>
-        </ScrollView>
-      </SafeAreaView>
-    </>
+  //3
+async getToken() {
+  let fcmToken = await AsyncStorage.getItem('fcmToken');
+  if (!fcmToken) {
+    console.log("no tengo el token")
+      fcmToken = await firebase.messaging().getToken();
+      if (fcmToken) {
+          // user has a device token
+          await AsyncStorage.setItem('fcmToken', fcmToken);
+          console.log("tengo el token")
+      }
+  }
+}
+
+  //2
+async requestPermission() {
+  try {
+      await firebase.messaging().requestPermission();
+      // User has authorised
+      this.getToken();
+  } catch (error) {
+      // User has rejected permissions
+      console.log('permission rejected');
+  }
+}
+ //Remove listeners allocated in createNotificationListeners()
+ componentWillUnmount() {
+  this.notificationListener();
+  this.notificationOpenedListener();
+}
+
+async createNotificationListeners() {
+  /*
+  * Triggered when a particular notification has been received in foreground
+  * */
+  this.notificationListener = firebase.notifications().onNotification((notification) => {
+      const { title, body } = notification;
+      console.log("open: ",notification)
+      this.showAlert(title, body);
+  });
+
+  /*
+  * If your app is in background, you can listen for when a notification is clicked / tapped / opened as follows:
+  * */
+  this.notificationOpenedListener = firebase.notifications().onNotificationOpened((notificationOpen) => {
+      const { title, body } = notificationOpen.notification;
+      console.log("background: ",notificationOpen);
+      this.showAlert(title, body);
+  });
+
+  /*
+  * If your app is closed, you can check if it was opened by a notification being clicked / tapped / opened as follows:
+  * */
+  const notificationOpen = await firebase.notifications().getInitialNotification();
+  if (notificationOpen) {
+      const { title, body } = notificationOpen.notification;
+      console.log("close: ",notificationOpen);
+      this.showAlert(title, body);
+  }
+  /*
+  * Triggered for data only payload in foreground
+  * */
+  this.messageListener = firebase.messaging().onMessage((message) => {
+    //process data message
+    console.log(JSON.stringify(message));
+  });
+}
+
+showAlert(title, body) {
+  Alert.alert(
+    title, body,
+    [
+        { text: 'OK', onPress: () => console.log('OK Pressed') },
+    ],
+    { cancelable: false },
   );
-};
+}
 
-const styles = StyleSheet.create({
-  scrollView: {
-    backgroundColor: Colors.lighter,
-  },
-  engine: {
-    position: 'absolute',
-    right: 0,
-  },
-  body: {
-    backgroundColor: Colors.white,
-  },
-  sectionContainer: {
-    marginTop: 32,
-    paddingHorizontal: 24,
-  },
-  sectionTitle: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: Colors.black,
-  },
-  sectionDescription: {
-    marginTop: 8,
-    fontSize: 18,
-    fontWeight: '400',
-    color: Colors.dark,
-  },
-  highlight: {
-    fontWeight: '700',
-  },
-  footer: {
-    color: Colors.dark,
-    fontSize: 12,
-    fontWeight: '600',
-    padding: 4,
-    paddingRight: 12,
-    textAlign: 'right',
-  },
-});
-
-export default App;
+  render() {
+    return (
+      <View style={{flex: 1}}>
+        <Text>Welcome to React Native!</Text>
+      </View>
+    );
+  }
+}

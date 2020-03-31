@@ -1,5 +1,5 @@
 apply plugin: "com.android.application"
-
+apply plugin: 'com.google.gms.google-services'
 import com.android.build.OutputFile
 
 /**
@@ -188,6 +188,7 @@ android {
 }
 
 dependencies {
+    implementation "com.google.firebase:firebase-messaging:18.0.0"
     implementation 'me.leolin:ShortcutBadger:1.1.21@aar' // <-- Add this line if you wish to use badge on Android
     implementation fileTree(dir: "libs", include: ["*.jar"])
     //noinspection GradleDynamicVersion
